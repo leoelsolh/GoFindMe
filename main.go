@@ -1,20 +1,23 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
-
-	badHash := map[string]string{
-		"5381c6e3a3c89c4a7bc5f57bc3634775385f5f1d3c2d2915ddb51281708f9cbf": "InfoStealer",
+	badHash, err := loadSignatures("signatures.txt")
+	if err != nil {
+		fmt.Println("Could not load signatures:", err)
+		return
 	}
 
-	err := filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -51,4 +54,25 @@ func hashFile(path string) (string, error) {
 	}
 	sum := sha256.Sum256(data)
 	return fmt.Sprintf("%x", sum), nil
+}
+
+func loadSignatures(path string) (map[string]string, error) {
+	sigs := map[string]string{}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		hash, name, found := strings.Cut(line, ",")
+		if !found {
+			continue
+		}
+		sigs[hash] = name
+	}
+
+	return sigs, nil
 }
