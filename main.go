@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/sha256"
+	"flag"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,13 +12,26 @@ import (
 )
 
 func main() {
+	path := flag.String("path", ".", "directory to scan")
+	flag.Parse()
+
+	scanDir := *path
+	if scanDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Println("Could not find home folder:", err)
+			return
+		}
+		scanDir = home
+	}
+
 	badHash, err := loadSignatures("signatures.txt")
 	if err != nil {
 		fmt.Println("Could not load signatures:", err)
 		return
 	}
 
-	err = filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(*path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -31,7 +45,8 @@ func main() {
 
 		hash, err := hashFile(path)
 		if err != nil {
-			return err
+			fmt.Fprintln(os.Stderr, "skipping:", path, err)
+			return nil
 		}
 
 		name, found := badHash[hash]
